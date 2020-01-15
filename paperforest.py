@@ -69,18 +69,18 @@ def hierarchy_pos(G, root=None, width=1., vert_gap = 0.2, vert_loc = 0, xcenter 
 
     return _hierarchy_pos(G, root, width, vert_gap, vert_loc, xcenter)
 
-def plot_radial_graph(G, first_item):
+def plot_radial_graph(G, first_item) -> None:
     pos = hierarchy_pos(G, first_item, width = 2*math.pi, xcenter=0)
     new_pos = {u:(r*math.cos(theta),r*math.sin(theta)) for u, (theta, r) in pos.items()}
     nx.draw(G, pos=new_pos, node_size = 50)
     nx.draw(G, pos=new_pos, nodelist = [first_item], node_color = 'blue', node_size = 200, with_labels=True, font_weight='bold')
 
-def plot_hierarchy_graph(G, first_item):
+def plot_hierarchy_graph(G, first_item) -> None:
     pos = hierarchy_pos(G, first_item)    
     nx.draw(G, pos=pos, with_labels=True, font_weight='bold')
 
-def _add_layer(top_nodes: list, graph: nx.classes.graph.Graph):
- """
+def _add_layer_ref(top_nodes: list, graph: nx.classes.graph.Graph) -> list:
+    """
         Builds one single level tree for this paper.
 
         :param top_nodes:
@@ -121,7 +121,49 @@ def _add_layer(top_nodes: list, graph: nx.classes.graph.Graph):
     
     return ref_nodes_MASTER
 
-def build_reference_tree(start: str, graph: nx.classes.graph.Graph, depth: int = 0):
+def _add_layer_cit(top_nodes: list, graph: nx.classes.graph.Graph) -> list:
+    """
+        Builds one single level tree for this paper.
+
+        :param top_nodes:
+            The paper top_nodes (generally the citations from more recent papers).
+
+        :type top_nodes:
+            list(str)
+
+        :param graph:
+            The graph to push the data onto.
+
+        :type graph:
+            nx.classes.graph.Graph
+
+        :returns:
+            The merged list of citations for the current articles.
+    """
+    
+    cit_nodes_MASTER = []
+    search = ads.SearchQuery(bibcode=top_nodes)
+
+    for top_node in search:
+
+        # Add the node to the graph if does not exist
+        if top_node.bibcode not in graph:
+            graph.add_node(top_node.bibcode)
+
+        # Extract cit_nodes and link them to top_nodes
+        cit_nodes = top_node.citation
+        edges = [(cit_node, top_node.bibcode) for cit_node in cit_nodes]
+
+        # Update the graph
+        graph.add_nodes_from(cit_nodes)
+        graph.add_edges_from(edges)
+        
+        # Append all cit_nodes to returned array
+        cit_nodes_MASTER.append(cit_nodes)
+    
+    return cit_nodes_MASTER
+
+def build_reference_tree(start: str, graph: nx.classes.graph.Graph, depth: int = 0) -> nx.classes.graph.Graph:
     """
         Builds a reference tree for this paper.
 
@@ -150,27 +192,97 @@ def build_reference_tree(start: str, graph: nx.classes.graph.Graph, depth: int =
     """
 
     print('Level 0')
-    refs_0 = _add_layer([start], graph)
+    refs_0 = _add_layer_ref([start], graph)
     edges_0 = [(start, ref) for ref in refs_0]
 
     if depth > 0:
         for i in range(1, depth+1):            
             print('Level {}'.format(i))
-            refs_1 = _add_layer(refs_0, graph)
+            refs_1 = _add_layer_ref(refs_0, graph)
 
-            # Update the input for _add_layer method
+            # Update the input for _add_layer_ref method
+            refs_0 = refs_1
+    
+    return graph
+
+def build_citation_tree(start: str, graph: nx.classes.graph.Graph, depth: int = 0) -> nx.classes.graph.Graph:
+    """
+        Builds a citation tree for this paper.
+
+        :param start:
+            The paper bibcode to start from.
+
+        :type start:
+            str
+
+        :param graph:
+            The graph to push the data onto.
+
+        :type graph:
+            nx.classes.graph.Graph
+
+        :param depth:
+            The number of levels to fetch in the reference tree.
+
+        :type depth:
+            int
+
+
+        :returns:
+            The networkx graph as a list of citations to the current article, with pre-loaded
+            references down by ``depth``.
+    """
+
+    print('Level 0')
+    refs_0 = _add_layer_cit([start], graph)
+    edges_0 = [(start, ref) for ref in refs_0]
+
+    if depth > 0:
+        for i in range(1, depth+1):            
+            print('Level {}'.format(i))
+            refs_1 = _add_layer_cit(refs_0, graph)
+
+            # Update the input for _add_layer_cit method
             refs_0 = refs_1
     
     return graph
     
+def build_history_tree(start: str, graph: nx.classes.graph.Graph, depth: int = 0) -> nx.classes.graph.Graph:
+    """
+        Builds the complete history tree for this paper, including citations and references.
 
-def main():
+        :param start:
+            The paper bibcode to start from.
+
+        :type start:
+            str
+
+        :param graph:
+            The graph to push the data onto.
+
+        :type graph:
+            nx.classes.graph.Graph
+
+        :param depth:
+            The number of levels to fetch in the reference tree.
+
+        :type depth:
+            int
+
+
+        :returns:
+            The networkx graph as a list of citations and references to the current article, with pre-loaded
+            references down by ``depth``.
+    """
+    raise('Not yet implemented')
+
+def main() -> None:
     ads.config.token = '73GO3Lmt6NRR59aoLzs9to6CsJX2thnB6Kg4bVNt'
 
     article_bib = ' 2019JCAP...06..001B '
 
     graph = nx.DiGraph()
-    graph = build_reference_tree(article_bib, graph, depth=3)
+    graph = build_reference_tree(article_bib, graph, depth=1)
     plot_hierarchy_graph(graph, article_bib)
     plt.show()
 
