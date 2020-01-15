@@ -277,9 +277,9 @@ def build_history_tree(start: str, graph: nx.classes.graph.Graph, depth: int = 0
     raise('Not yet implemented')
 
 def main() -> None:
-    ads.config.token = '73GO3Lmt6NRR59aoLzs9to6CsJX2thnB6Kg4bVNt'
+    ads.config.token = 'WgiGlzkoobP9naqNcHutmsNmuBCturF0SGnDgyR4'
 
-    article_bib = ' 2019JCAP...06..001B '
+    article_bib = '2019JCAP...06..001B'
 
     graph = nx.DiGraph()
     graph = build_reference_tree(article_bib, graph, depth=1)
