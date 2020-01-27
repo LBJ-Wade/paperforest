@@ -1,7 +1,6 @@
 import ads
 import math
 import networkx as nx
-import matplotlib.pyplot as plt
 from random import random
 
 class Paper:
@@ -13,30 +12,70 @@ class Paper:
         else:
             self.bibcode = bibcode
 
+        try:
             # print('References not specified - importing data from NASA/ADS...')
             search = ads.SearchQuery(bibcode=bibcode, fl=['bibcode', 'citation_count',
                                                           'reference', 'first_author',
                                                           'year'])
+
+        except:
+            setattr(Paper, 'reference', [])
+            setattr(Paper, 'citation_count', 0)
+            setattr(Paper, 'first_author', '')
+            setattr(Paper, 'year', 0)
+
+        else:
             for article_found in search:
-                self.references = article_found.reference
+
+                setattr(Paper, 'reference', article_found.reference)
+                setattr(Paper, 'citation_count', article_found.citation_count)
+                setattr(Paper, 'first_author', article_found.first_author)
+                setattr(Paper, 'year', article_found.year)
+
+        if self.reference == None:
+            self.reference = []
+
 
     def print_info(self):
-        print('Bibcode: ', self.bibcode)
-        print('References number:', len(self.references))
+
+        print('Paper: bibcode {} >> author/year {}  >> {} references'.format(self.bibcode, self.first_author +
+                                                                                  '\t' +
+                                                                                  self.year,
+                                                                                  len(self.reference)))
+
+
+    def get_refs(self):
+
+        return self.reference
+
+    def get_info(self):
+
+        # print("""Data format: tuple('bibcode', 'citation_count', 'reference', 'first_author', 'year')""")
+        return (
+            self.bibcode,
+            self.citation_count,
+            self.reference,
+            self.first_author,
+            self.year
+        )
+
+
+
 
 
 class Tree(nx.Graph):
 
     def __init__(self, start_paper = None):
 
-        self.graph = nx.Graph()
+        self.graph = nx.DiGraph()
         self.start_paper = start_paper
 
     def __del__(self):
 
         search_cost = ads.RateLimits('SearchQuery').limits
         print('Remaining daily available searches:  ({}/{})  {} %'.format(search_cost['remaining'], search_cost[
-            'limit'], 100*int(search_cost['remaining']) / int(search_cost['limit'])))
+            'limit'], 100*int(search_cost['remaining']) / int(search_cost['limit'])
+                                                                          ))
 
     def _add_node(self, node):
         self.graph.add_node(node)
@@ -44,39 +83,54 @@ class Tree(nx.Graph):
     def _add_edge(self, edge):
         self.graph.add_edge(edge)
 
-    def _add_block(self, top_node, bottom_nodes: list):
+    def save(self, filename : str):
+        if not filename.endswith('.gpickle'):
+            filename += '.gpickle'
+        nx.write_gpickle(self.graph, filename)
+        print('Tree saved as {}.'.format(filename))
+
+
+    def _add_block(self, top_node : str):
+
+        top_paper = Paper(bibcode=top_node)
+        references = top_paper.reference
+        top_paper.print_info()
+        del top_paper
 
         if top_node not in self.graph:
             self._add_node(top_node)
 
-        for bottom_node in bottom_nodes:
+        for bottom_node in references:
+
+            assert bottom_node != None and type(bottom_node) == str
             self._add_node(bottom_node)
 
             if not self.graph.has_edge(bottom_node, top_node):
                 self.graph.add_edge(bottom_node, top_node)
 
-    def _add_layer(self, top_node_list, label = None):
+        return references
 
-        # Associate a label to the particular layer, e.g. tree depth
-        if not label == None:
-            setattr(Tree._add_layer, 'label', label)
+    def _add_layer(self, top_node_list : list, label : int = None):
 
         # Gather all layer references here for recursion
         _all_bottom_nodes = []
 
+        assert len(top_node_list) > 0
+        assert all(isinstance(item, str) for item in top_node_list)
+
         for top_node in top_node_list:
 
-            top_paper = Paper(bibcode = top_node)
-            self._add_block(top_paper.bibcode, top_paper.references)
-            _all_bottom_nodes.extend(top_paper.references)
+            _bottom_nodes = self._add_block(top_node)
+            _all_bottom_nodes.extend(_bottom_nodes)
 
-        print('{} total references found in this layer.'.format(len(_all_bottom_nodes)))
+
+        print('Layer {} has {} references in total.\n'.format(label, len(_all_bottom_nodes)))
         return _all_bottom_nodes
 
 
-    def build_reference_tree(self, depth = None):
+    def build_reference_tree(self, depth = 1):
 
-        assert depth > -1 and depth < 201, '[Error] The tree depth must be 0 <= depth <= 200.'
+        assert depth > -1 and depth < 101, '[Error] The tree depth must be 0 <= depth <= 100.'
 
         if depth == 0:
             print('[Warning] depth == 0 implies only the input paper in the graph.')
@@ -84,19 +138,24 @@ class Tree(nx.Graph):
 
         elif depth == 1:
             print('[Warning] depth == 1 implies only the input paper and its references in the graph.')
-            self._add_layer([self.start_paper], label='1')
+            self._add_layer([self.start_paper], label = 1)
 
         else:
+
+            _all_refs = []
 
             for layer_degree in range(depth + 1):
 
                 print('Initialising layer {}...'.format(layer_degree))
 
+
                 if layer_degree == 0:
-                    _all_bottom_nodes = self._add_layer([self.start_paper], label = '{}'.format(layer_degree))
+                    _all_refs = self._add_layer([self.start_paper], label = '{}'.format(layer_degree))
 
                 else:
-                    _all_bottom_nodes = self._add_layer(_all_bottom_nodes, label = '{}'.format(layer_degree))
+                    _top_input = _all_refs
+                    _all_refs = self._add_layer(_top_input, label = '{}'.format(layer_degree))
+
 
     def quick_plot(self):
 
@@ -180,20 +239,3 @@ class Tree(nx.Graph):
         nx.draw(self.graph, pos=pos, with_labels=True, font_weight='bold')
 
 
-
-
-
-def main():
-    ads.config.token = 'your_API_token'
-
-    article_bib = '2019JCAP...06..001B'
-
-    tree = Tree(start_paper = article_bib)
-    tree.build_reference_tree(depth = 2)
-    tree.hierarchy_plot()
-    plt.show()
-
-
-
-if __name__ == '__main__':
-    main()
