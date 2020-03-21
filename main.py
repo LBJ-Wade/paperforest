@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 def main():
 
     # Import your ADS token
-    ads.config.token = 'yourToken'
+    ads.config.token = 'eZ5QoObHeFAtyoBwkZaxnpBsmFPlb6BrUmzG6G67'
 
     # Specify the paper to start from
-    article_bib = '1985ApJS...57...77S'
+    article_bib = '2018MNRAS.479.4028B'
 
     # Create tree and save as NetworkX graph if not existent
     if not os.path.isfile('./' + article_bib + '.gpickle'):
