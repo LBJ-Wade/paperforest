@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 if __name__ == '__main__':
 
     # Import your ADS token
-    ads.config.token = 'eZ5QoObHeFAtyoBwkZaxnpBsmFPlb6BrUmzG6G67'
+    ads.config.token = ''
 
     # Specify the paper to start from
     paper = pf.Paper(bibcode='2018MNRAS.479.4028B')
