@@ -6,34 +6,31 @@ import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 
-def main():
+
+if __name__ == '__main__':
 
     # Import your ADS token
-    ads.config.token = 'eZ5QoObHeFAtyoBwkZaxnpBsmFPlb6BrUmzG6G67'
+    ads.config.token = ''
 
     # Specify the paper to start from
-    article_bib = '2018MNRAS.479.4028B'
+    paper = pf.Paper(bibcode='2018MNRAS.479.4028B')
+    tree  = pf.Tree(start_paper=paper, depth=1)
 
     # Create tree and save as NetworkX graph if not existent
-    if not os.path.isfile('./' + article_bib + '.gpickle'):
-        tree = pf.Tree(start_paper = article_bib)
-        tree.build_reference_tree(depth = 2)
-        tree.save(article_bib)
+    if not tree.exists():
+        tree.build_reference_tree()
+        tree.save()
 
-    # Pickle-back the graph
-    G = nx.read_gpickle(article_bib + '.gpickle')
+    # Create a Timeline plot (year of publications VS num of citations)
+    timeline = pf.TimelinePlot.from_tree(tree)
+    timeline.make_plot()
+    timeline.save()
+    plt.clf()
 
-    # Plot the graph
-    pos = nx.spring_layout(G)
-    nx.draw_networkx_nodes(G, pos, node_size=3, node_color='orange')
-    nx.draw_networkx_edges(G, pos, alpha=0.3, edge_color='lime')
-    plt.axis('off')
-    plt.savefig('graph_' + article_bib + '.png', dpi = 300)
-
+    plt.close()
 
     # Plot the degree distribution
-    plt.clf()
-    degree_sequence = sorted([d for n, d in G.degree()], reverse=True)  # degree sequence
+    degree_sequence = sorted([d for n, d in tree.read().degree()], reverse=True)  # degree sequence
     bins = np.logspace(0, 3, 20)
     plt.hist(degree_sequence, bins=bins, color='b')
     plt.title("Degree Histogram")
@@ -41,8 +38,6 @@ def main():
     plt.xlabel("Degree")
     plt.xscale('log')
     plt.yscale('log')
-    plt.savefig('degree_distribution_' + article_bib + '.png', dpi = 250)
+    plt.savefig('degree_distribution_' + paper.bibcode.replace('.', '') + '.png', dpi=400)
 
 
-if __name__ == '__main__':
-    main()
